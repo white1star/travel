@@ -1,0 +1,55 @@
+{
+  "projectId": "4397958274684739075",
+  "screens": [
+    {
+      "file": "desktop-home.html",
+      "id": "9f772cfee1ad4f4aa185d23ffe2a8369"
+    },
+    {
+      "file": "mobile-home.html",
+      "id": "6cac18eb2e3f4b01af6668a0ba459d2f"
+    },
+    {
+      "file": "card-interaction-spec.html",
+      "id": "2ed2c516b2074f249fa8a39029605330"
+    }
+  ],
+  "assets": [
+    {
+      "name": "image-01",
+      "url": "https://lh3.googleusercontent.com/aida-public/AB6AXuCriIwPYdy4MzutVt2ddEZ1ZfBj294UjJJt__VK-xuNuVtGgEATiPYokmYWZQiZyWa1uq44Kk-rHiTaLPz-qoBAo1QD4snZYC1nMnqC1WdCr_mFeRtTIZWi7JoaP_V3zhEey560yidbzEMjv38TtmqaZEwBXmplOBOasIYn_dK8HziF5ZgFo5Mf0-d7t58OKAiLQIXaDIsetx8CuNkzaM5yRgiz_ssGi3JSOsTwEKIvNu5d4sB7AAsn",
+      "screens": [
+        "desktop-home.html"
+      ]
+    },
+    {
+      "name": "image-02",
+      "url": "https://lh3.googleusercontent.com/aida/AEtjO1UsRzbtk9lg1BB4tBEgiqxbxvK5xnX03k6IyaA0TTyCc4LFBbsrdZV9ak1b_R4DHr4KY96PDMEZ3YYK7_1B1Clk0BXhtxnRxDA-Y-1SctePj0vfO9vTi4LQXeEgp9asUVBUGgGNCXkZGw5hRhtwDz5JHxmUS_LKdlrHQaaVMOM7pMAh4tAETsURDiACrt2V6UxMl2jsWl-WonfKPTCEvYSPmkCOr3zK7ife4Kwhp_ssN8ZXynEXYbYbYpY",
+      "screens": [
+        "mobile-home.html"
+      ]
+    },
+    {
+      "name": "image-03",
+      "url": "https://lh3.googleusercontent.com/aida-public/AB6AXuANAJEb_VMUvuI-JPJFD7L99aSSjwclx2q0o6Fu80MPUsLIeqs_80DZ6tB0FD8kVHS7Nc8oOKn28RwqO6n5-YY7T3NiLYQ-JuSNN00z_c8XcP5gFjLJBM589dQr7d81VRTyiU-UbLje60LH8PloNQu9HCoZxhlpXONMWJUm4WbnMZ-iSIht58eSRM2JkPxXJVBF-iVySQP1SmxQMfBJuVFi4Rl1IXZbIpLJD38JXu0VaDP4IA36LLJy",
+      "screens": [
+        "mobile-home.html"
+      ]
+    },
+    {
+      "name": "image-04",
+      "url": "https://lh3.googleusercontent.com/aida/AEtjO1W7Q9tqIDrGmK8P21-3tldwCXng22mcXLtCHutN1PGHQ4KoGM8JuqyOpz4u9cAmi-135fx52KTNvM3PoOWQfDDTywyQZfiexwfAEo9YDXN-UeMi0Fx67PuQRcWTj7maztSjDMCIqP_KkzBeNRK90VH0x2tZqWcHSaXfM92ipFCJoUb_VQWGr3QmMZ0liJ-HCQGF8lcEKb6aLmDczQAfLYGNXd_3Nfh0wYJ_06KVjb1y09NgFBAXNWp-TS4",
+      "screens": [
+        "card-interaction-spec.html"
+      ]
+    },
+    {
+      "name": "image-05",
+      "url": "https://lh3.googleusercontent.com/aida/AEtjO1Vz39SO73tlo_sykZgKN_9afOxnJsTLq5YI8XntrQYLhKcjxHi3O-db0x71J48IHyXXWBNfEQ3aps-lfu-5csY_2WIarkmbiWDtfZaMcNvOG78ojQMu_6YE-8-k66ZeE-b2Jz7TUp9UPTnTB536R0ljBu_c-iv77YWMWFp_oCroGxe7YEMsbxOjOvZa1lXB4Ij779-PWnqTMcAQ9K8Cl0jW0iSrB_STfNoiFl6ZPYfrML4GeN5l5rvBbrQ",
+      "screens": [
+        "card-interaction-spec.html",
+        "card-interaction-spec.html"
+      ]
+    }
+  ]
+}

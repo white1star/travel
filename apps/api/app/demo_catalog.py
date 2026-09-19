@@ -1,0 +1,71 @@
+DEMO_PLACES: dict[str, list[dict[str, object]]] = {
+    "苏州": [
+        {
+            "name": "拙政园",
+            "category": "园林",
+            "description": "中国四大名园之一，园林空间层次丰富，建议预留完整上午。",
+            "coordinate": (120.6295, 31.3240),
+            "cost": 80,
+            "verified_hours": True,
+        },
+        {
+            "name": "苏州博物馆",
+            "category": "博物馆",
+            "description": "贝聿铭设计的新馆与忠王府相连，预约规则需出发前确认。",
+            "coordinate": (120.6277, 31.3241),
+            "cost": 0,
+            "verified_hours": False,
+        },
+        {
+            "name": "平江路",
+            "category": "街区",
+            "description": "沿河步行体验苏州古城肌理，适合傍晚慢行。",
+            "coordinate": (120.6334, 31.3115),
+            "cost": 0,
+            "verified_hours": True,
+        },
+        {
+            "name": "山塘街",
+            "category": "街区",
+            "description": "串联古城水巷与夜景，可根据体力缩短停留时间。",
+            "coordinate": (120.6048, 31.3210),
+            "cost": 0,
+            "verified_hours": True,
+        },
+    ],
+    "杭州": [
+        {
+            "name": "西湖",
+            "category": "自然风景",
+            "description": "沿湖安排步行与休息，避免在一天内反复折返。",
+            "coordinate": (120.1487, 30.2450),
+            "cost": 0,
+            "verified_hours": True,
+        },
+        {
+            "name": "灵隐寺",
+            "category": "人文古迹",
+            "description": "位于西湖西侧山林，建议早间前往并预留排队时间。",
+            "coordinate": (120.1014, 30.2400),
+            "cost": 75,
+            "verified_hours": False,
+        },
+        {
+            "name": "河坊街",
+            "category": "历史街区",
+            "description": "适合晚间散步并体验杭州特色小吃。",
+            "coordinate": (120.1706, 30.2420),
+            "cost": 0,
+            "verified_hours": True,
+        },
+        {
+            "name": "中国丝绸博物馆",
+            "category": "博物馆",
+            "description": "系统了解丝绸文化，开放安排需出发前再次确认。",
+            "coordinate": (120.1450, 30.2260),
+            "cost": 0,
+            "verified_hours": False,
+        },
+    ],
+}
+

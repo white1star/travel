@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>旅行计划 - 卡片交互与状态规范预览</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@500;600;700&amp;display=swap" rel="stylesheet"/>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: '#59CBB2',
+            'brand-hover': '#42BFA4',
+            'brand-subtle': '#E8F8F2',
+            'brand-border': '#DBEAE4',
+            'brand-dark': '#173D35',
+            surface: '#F7FCFA',
+            'surface-card': '#FFFFFF',
+            'surface-dim': '#E8F8F2',
+            charcoal: '#173D35',
+            muted: '#60786F',
+            borderline: '#DBEAE4',
+          },
+          fontFamily: {
+            sans: ['"Noto Sans SC"', '"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+          },
+          boxShadow: {
+            'clean': '0 1px 3px rgba(23, 61, 53, 0.04), 0 2px 8px rgba(23, 61, 53, 0.04)',
+            'hover-elevated': '0 12px 28px -6px rgba(23, 61, 53, 0.12), 0 6px 14px -3px rgba(23, 61, 53, 0.06)',
+            'media-hover': '0 10px 24px -4px rgba(23, 61, 53, 0.10), 0 4px 10px -2px rgba(23, 61, 53, 0.04)',
+          },
+          transitionTimingFunction: {
+            'natural': 'cubic-bezier(0.16, 1, 0.3, 1)',
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    body {
+      background-color: #F7FCFA;
+      color: #173D35;
+      font-family: 'Noto Sans SC', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* 顶部隐藏色线交互 - 300ms natural easing (先快后慢) */
+    .indicator-line {
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .info-card.interactive-hover:hover .indicator-line {
+      transform: scaleX(1);
+    }
+
+    /* 信息卡片本体悬停位移与平滑回弹 */
+    .info-card {
+      transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1),
+                  box-shadow 300ms cubic-bezier(0.16, 1, 0.3, 1),
+                  border-color 300ms cubic-bezier(0.16, 1, 0.3, 1),
+                  background-color 300ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .info-card.interactive-hover:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 12px 28px -6px rgba(23, 61, 53, 0.12), 0 6px 14px -3px rgba(23, 61, 53, 0.06);
+      border-color: #59CBB2;
+    }
+
+    /* 图标背景与内部图标平滑转变 */
+    .icon-box {
+      transition: background-color 300ms cubic-bezier(0.16, 1, 0.3, 1),
+                  color 300ms cubic-bezier(0.16, 1, 0.3, 1),
+                  border-color 300ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .info-card.interactive-hover:hover .icon-box {
+      background-color: #59CBB2 !important;
+      color: #173D35 !important;
+      border-color: #59CBB2 !important;
+    }
+
+    /* 图文行程卡片：向上移动 5px，图片放大至 1.05 倍裁切于容器内 */
+    .trip-card {
+      transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1),
+                  box-shadow 300ms cubic-bezier(0.16, 1, 0.3, 1),
+                  border-color 300ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .trip-card .trip-img {
+      transition: transform 450ms cubic-bezier(0.16, 1, 0.3, 1);
+      transform: scale(1);
+    }
+    .trip-card.interactive-hover:hover {
+      transform: translateY(-5px);
+      border-color: #59CBB2;
+      box-shadow: 0 10px 24px -4px rgba(23, 61, 53, 0.10), 0 4px 10px -2px rgba(23, 61, 53, 0.04);
+    }
+    .trip-card.interactive-hover:hover .trip-img {
+      transform: scale(1.05);
+    }
+
+    /* 选中状态特有样式：平稳落回 0px，浅薄荷底色与深绿描边 */
+    .is-selected {
+      border-color: #173D35 !important;
+      border-width: 2px !important;
+      background-color: #E8F8F2 !important;
+      transform: translateY(0px) !important;
+    }
+    .is-selected .selected-badge {
+      opacity: 1 !important;
+      transform: scale(1) !important;
+    }
+    .is-selected .indicator-line {
+      transform: scaleX(1) !important;
+      background-color: #59CBB2 !important;
+    }
+    .is-selected .icon-box {
+      background-color: #59CBB2 !important;
+      color: #173D35 !important;
+      border-color: #59CBB2 !important;
+    }
+
+    /* 状态指示器小徽标 */
+    .status-pill {
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-feature-settings: 'tnum' on;
+    }
+  </style>
+</head>
+<body class="min-h-screen py-10 px-4 sm:px-8 max-w-7xl mx-auto selection:bg-brand selection:text-charcoal">
+<!-- 顶部标题与设计原则导读 -->
+<header class="mb-10 pb-6 border-b border-borderline">
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div>
+<div class="flex items-center gap-2 mb-2">
+<span class="inline-block w-2.5 h-2.5 bg-brand rounded-sm shadow-xs"></span>
+<span class="text-xs uppercase tracking-widest text-muted font-semibold">DESIGN SPEC &amp; INTERACTIVE PLAYGROUND</span>
+</div>
+<h1 class="text-3xl font-bold tracking-tight text-charcoal">卡片外观与细腻交互反馈规范</h1>
+<p class="text-sm text-muted mt-2 max-w-3xl leading-relaxed">
+          遵循沉静明朗的 <strong class="text-charcoal font-semibold">薄荷绿 &amp; 清新阳光</strong> 设计语言。本页包含真实可交互的操作演示，包含「默认」、「悬停」与「选中」三态对比，所有动效过渡严格为 300ms 先快后慢（<code class="text-xs bg-surface-dim px-1.5 py-0.5 rounded text-charcoal font-mono">cubic-bezier(0.16, 1, 0.3, 1)</code>），不弹跳、不旋转、不发光。
+        </p>
+</div>
+<!-- 快速切换环境视图 -->
+<div class="flex items-center bg-surface-dim p-1 rounded-lg border border-borderline text-xs">
+<button class="px-3.5 py-1.5 rounded-md font-semibold bg-white text-charcoal shadow-sm transition-all" id="view-mode-desktop" onclick="setViewMode('desktop')">
+          桌面端悬停模式
+        </button>
+<button class="px-3.5 py-1.5 rounded-md font-semibold text-muted hover:text-charcoal transition-all" id="view-mode-mobile" onclick="setViewMode('mobile')">
+          移动端触控/选中模式
+        </button>
+</div>
+</div>
+</header>
+<!-- 模块一：状态全景对照 (默认 vs 悬停 vs 选中) -->
+<section class="mb-14">
+<div class="flex items-baseline justify-between mb-5">
+<div>
+<h2 class="text-lg font-bold text-charcoal flex items-center gap-2">
+<span>01 / 状态静态对照（三态视觉差异）</span>
+</h2>
+<p class="text-xs text-muted mt-1">直观对比信息卡片在三种标准状态下的高度、阴影、色线与图标表现</p>
+</div>
+<span class="text-xs text-muted font-mono">SPEC: 300ms / EASING: 0.16, 1, 0.3, 1</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- 1. 默认状态 -->
+<div class="space-y-2">
+<div class="flex items-center justify-between text-xs px-1">
+<span class="font-medium text-charcoal">1. 默认状态 (Default)</span>
+<span class="text-muted status-pill">平整 · 稳定</span>
+</div>
+<div class="relative bg-surface-card rounded-lg border border-borderline p-5 shadow-clean overflow-hidden">
+<!-- 隐藏色线 (默认 scaleX=0) -->
+<div class="absolute top-0 left-0 right-0 h-[3px] bg-brand scale-x-0 origin-left"></div>
+<div class="flex items-start justify-between">
+<div class="w-10 h-10 rounded-md border border-borderline bg-surface-dim text-charcoal flex items-center justify-center">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75"></path>
+</svg>
+</div>
+<span class="text-[11px] text-muted border border-borderline px-2 py-0.5 rounded-sm">未激活</span>
+</div>
+<div class="mt-4">
+<h4 class="font-bold text-charcoal text-base">适中节奏</h4>
+<p class="text-xs text-muted mt-1 leading-normal">每日 2-3 处深度探索，留出充裕的茶馆与街区漫步时间。</p>
+</div>
+<div class="mt-4 pt-3 border-t border-borderline flex items-center justify-between text-[11px] text-muted">
+<span>位移: 0px</span>
+<span>柔和青灰底阴: 0 1px 3px</span>
+</div>
+</div>
+</div>
+<!-- 2. 悬停状态 (冻结展示) -->
+<div class="space-y-2">
+<div class="flex items-center justify-between text-xs px-1">
+<span class="font-medium text-charcoal">2. 悬停状态 (Hover)</span>
+<span class="text-charcoal status-pill font-semibold">上浮 8px · 展开薄荷绿线</span>
+</div>
+<div class="relative bg-surface-card rounded-lg border border-brand p-5 shadow-hover-elevated overflow-hidden -translate-y-2">
+<!-- 展开色线 (scaleX=1) -->
+<div class="absolute top-0 left-0 right-0 h-[3px] bg-brand origin-left scale-x-100"></div>
+<div class="flex items-start justify-between">
+<div class="w-10 h-10 rounded-md border border-brand bg-brand text-charcoal flex items-center justify-center shadow-xs">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75"></path>
+</svg>
+</div>
+<span class="text-[11px] text-charcoal bg-brand-subtle font-semibold border border-brand px-2 py-0.5 rounded-sm">悬停反馈</span>
+</div>
+<div class="mt-4">
+<h4 class="font-bold text-charcoal text-base">适中节奏</h4>
+<p class="text-xs text-muted mt-1 leading-normal">每日 2-3 处深度探索，留出充裕的茶馆与街区漫步时间。</p>
+</div>
+<div class="mt-4 pt-3 border-t border-borderline flex items-center justify-between text-[11px] text-charcoal font-medium">
+<span>位移: -8px</span>
+<span>扩散阴影 + 顶层色线</span>
+</div>
+</div>
+</div>
+<!-- 3. 选中状态 (冻结展示) -->
+<div class="space-y-2">
+<div class="flex items-center justify-between text-xs px-1">
+<span class="font-medium text-charcoal">3. 选中状态 (Selected)</span>
+<span class="text-charcoal status-pill font-semibold">深绿描边 · 浅薄荷底 · 勾选标记</span>
+</div>
+<div class="relative bg-brand-subtle rounded-lg border-2 border-brand-dark p-5 shadow-clean overflow-hidden">
+<!-- 恒定贯穿色线 -->
+<div class="absolute top-0 left-0 right-0 h-[3px] bg-brand"></div>
+<div class="flex items-start justify-between">
+<div class="w-10 h-10 rounded-md border border-brand bg-brand text-charcoal flex items-center justify-center shadow-xs">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75"></path>
+</svg>
+</div>
+<!-- 勾选标记 -->
+<div class="flex items-center gap-1 text-[11px] text-brand-dark font-bold bg-white px-2 py-0.5 rounded-sm border border-borderline shadow-xs">
+<svg class="w-3.5 h-3.5 text-brand-dark" fill="currentColor" viewbox="0 0 20 20">
+<path clip-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" fill-rule="evenodd"></path>
+</svg>
+<span>已选择</span>
+</div>
+</div>
+<div class="mt-4">
+<h4 class="font-bold text-charcoal text-base">适中节奏</h4>
+<p class="text-xs text-muted mt-1 leading-normal">每日 2-3 处深度探索，留出充裕的茶馆与街区漫步时间。</p>
+</div>
+<div class="mt-4 pt-3 border-t border-borderline flex items-center justify-between text-[11px] text-charcoal">
+<span>回落稳定 (0px)</span>
+<span>浅薄荷背景: #E8F8F2</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- 模块二：创建行程交互体验区（信息卡片：单选节奏 + 多选兴趣） -->
+<section class="mb-14 p-6 sm:p-8 bg-white border border-borderline rounded-xl shadow-clean">
+<div class="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 mb-6 pb-4 border-b border-borderline">
+<div>
+<div class="inline-block px-2.5 py-0.5 bg-surface-dim text-[11px] text-charcoal rounded-md mb-1 font-mono font-semibold">SCENARIO A / 创建行程表单</div>
+<h2 class="text-xl font-bold text-charcoal">信息卡片交互区：请在下方卡片上体验悬停与点击</h2>
+</div>
+<p class="text-xs text-muted">
+        鼠标移入：上移 8px、加深柔和阴影、展开薄荷绿线、图标底色变薄荷绿；点击：落回基面并切换浅薄荷选中态
+      </p>
+</div>
+<!-- 1. 单选：旅行节奏选择 -->
+<div class="mb-8">
+<div class="flex items-center justify-between mb-3">
+<label class="text-xs font-bold tracking-wider text-charcoal uppercase">
+          单选示例 · 旅行节奏 (Select Pace)
+        </label>
+<span class="text-xs text-muted">当前选择：<span class="font-bold text-charcoal" id="pace-result-text">适中探索</span></span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="pace-container">
+<!-- 卡片 1: 紧凑打卡 -->
+<div class="info-card interactive-hover relative bg-surface-card rounded-lg border border-borderline p-5 shadow-clean overflow-hidden cursor-pointer select-none" onclick="selectPace(this, '紧凑打卡')">
+<div class="indicator-line absolute top-0 left-0 right-0 h-[3px] bg-brand"></div>
+<div class="flex items-start justify-between">
+<div class="icon-box w-9 h-9 rounded-md border border-borderline bg-surface-dim text-charcoal flex items-center justify-center">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M13 10V3L4 14h7v7l9-11h-7z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<div class="selected-badge opacity-0 scale-90 transition-all duration-200 flex items-center gap-1 text-[11px] text-brand-dark font-bold bg-white px-2 py-0.5 rounded-sm border border-borderline shadow-xs">
+<svg class="w-3 h-3 text-brand-dark" fill="currentColor" viewbox="0 0 20 20">
+<path clip-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" fill-rule="evenodd"></path>
+</svg>
+<span>已选</span>
+</div>
+</div>
+<h4 class="font-bold text-charcoal text-base mt-3">紧凑打卡</h4>
+<p class="text-xs text-muted mt-1 leading-relaxed">日均 4-5 处地标，适合体力充沛、希望最大化城市探索密度的行程。</p>
+</div>
+<!-- 卡片 2: 适中探索 (默认选中) -->
+<div class="info-card interactive-hover is-selected relative bg-surface-card rounded-lg border border-borderline p-5 shadow-clean overflow-hidden cursor-pointer select-none" onclick="selectPace(this, '适中探索')">
+<div class="indicator-line absolute top-0 left-0 right-0 h-[3px] bg-brand"></div>
+<div class="flex items-start justify-between">
+<div class="icon-box w-9 h-9 rounded-md border border-borderline bg-surface-dim text-charcoal flex items-center justify-center">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<div class="selected-badge opacity-0 scale-90 transition-all duration-200 flex items-center gap-1 text-[11px] text-brand-dark font-bold bg-white px-2 py-0.5 rounded-sm border border-borderline shadow-xs">
+<svg class="w-3 h-3 text-brand-dark" fill="currentColor" viewbox="0 0 20 20">
+<path clip-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" fill-rule="evenodd"></path>
+</svg>
+<span>已选</span>
+</div>
+</div>
+<h4 class="font-bold text-charcoal text-base mt-3">适中探索</h4>
+<p class="text-xs text-muted mt-1 leading-relaxed">日均 2-3 处重点，兼顾步行深度停留与街区漫游，不赶场不疲惫。</p>
+</div>
+<!-- 卡片 3: 轻松度假 -->
+<div class="info-card interactive-hover relative bg-surface-card rounded-lg border border-borderline p-5 shadow-clean overflow-hidden cursor-pointer select-none" onclick="selectPace(this, '轻松度假')">
+<div class="indicator-line absolute top-0 left-0 right-0 h-[3px] bg-brand"></div>
+<div class="flex items-start justify-between">
+<div class="icon-box w-9 h-9 rounded-md border border-borderline bg-surface-dim text-charcoal flex items-center justify-center">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<div class="selected-badge opacity-0 scale-90 transition-all duration-200 flex items-center gap-1 text-[11px] text-brand-dark font-bold bg-white px-2 py-0.5 rounded-sm border border-borderline shadow-xs">
+<svg class="w-3 h-3 text-brand-dark" fill="currentColor" viewbox="0 0 20 20">
+<path clip-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" fill-rule="evenodd"></path>
+</svg>
+<span>已选</span>
+</div>
+</div>
+<h4 class="font-bold text-charcoal text-base mt-3">轻松度假</h4>
+<p class="text-xs text-muted mt-1 leading-relaxed">日均 1-2 处，留白充沛，以茶馆、随性散步与在地美食为主。</p>
+</div>
+</div>
+</div>
+<!-- 2. 多选：兴趣偏好选项 -->
+<div>
+<div class="flex items-center justify-between mb-3">
+<label class="text-xs font-bold tracking-wider text-charcoal uppercase">
+          多选示例 · 兴趣偏好 (Multi-Select Preferences)
+        </label>
+<span class="text-xs text-muted">支持点击任意卡片组合（已勾选 <span class="font-bold text-charcoal" id="interests-count">3</span> 项）</span>
+</div>
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+<!-- 兴趣 1: 历史文化 (已选) -->
+<div class="info-card interactive-hover is-selected relative bg-surface-card rounded-lg border border-borderline p-4 shadow-clean overflow-hidden cursor-pointer select-none text-left" onclick="toggleInterest(this)">
+<div class="indicator-line absolute top-0 left-0 right-0 h-[3px] bg-brand"></div>
+<div class="flex items-center justify-between mb-2">
+<div class="icon-box w-7 h-7 rounded-md border border-borderline bg-surface-dim text-charcoal flex items-center justify-center">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<div class="selected-badge opacity-0 scale-90 transition-all duration-200 text-brand-dark">
+<svg class="w-4 h-4" fill="currentColor" viewbox="0 0 20 20">
+<path clip-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" fill-rule="evenodd"></path>
+</svg>
+</div>
+</div>
+<div class="font-semibold text-xs text-charcoal">历史文化</div>
+<div class="text-[10px] text-muted mt-0.5">古迹 · 博物馆</div>
+</div>
+<!-- 兴趣 2: 城市漫步 (已选) -->
+<div class="info-card interactive-hover is-selected relative bg-surface-card rounded-lg border border-borderline p-4 shadow-clean overflow-hidden cursor-pointer select-none text-left" onclick="toggleInterest(this)">
+<div class="indicator-line absolute top-0 left-0 right-0 h-[3px] bg-brand"></div>
+<div class="flex items-center justify-between mb-2">
+<div class="icon-box w-7 h-7 rounded-md border border-borderline bg-surface-dim text-charcoal flex items-center justify-center">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<div class="selected-badge opacity-0 scale-90 transition-all duration-200 text-brand-dark">
+<svg class="w-4 h-4" fill="currentColor" viewbox="0 0 20 20">
+<path clip-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" fill-rule="evenodd"></path>
+</svg>
+</div>
+</div>
+<div class="font-semibold text-xs text-charcoal">城市漫步</div>
+<div class="text-[10px] text-muted mt-0.5">街巷 · 建筑探索</div>
+</div>
+<!-- 兴趣 3: 当地美食 (已选) -->
+<div class="info-card interactive-hover is-selected relative bg-surface-card rounded-lg border border-borderline p-4 shadow-clean overflow-hidden cursor-pointer select-none text-left" onclick="toggleInterest(this)">
+<div class="indicator-line absolute top-0 left-0 right-0 h-[3px] bg-brand"></div>
+<div class="flex items-center justify-between mb-2">
+<div class="icon-box w-7 h-7 rounded-md border border-borderline bg-surface-dim text-charcoal flex items-center justify-center">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<div class="selected-badge opacity-0 scale-90 transition-all duration-200 text-brand-dark">
+<svg class="w-4 h-4" fill="currentColor" viewbox="0 0 20 20">
+<path clip-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" fill-rule="evenodd"></path>
+</svg>
+</div>
+</div>
+<div class="font-semibold text-xs text-charcoal">当地美食</div>
+<div class="text-[10px] text-muted mt-0.5">老字号 · 市井茶点</div>
+</div>
+<!-- 兴趣 4: 自然风景 -->
+<div class="info-card interactive-hover relative bg-surface-card rounded-lg border border-borderline p-4 shadow-clean overflow-hidden cursor-pointer select-none text-left" onclick="toggleInterest(this)">
+<div class="indicator-line absolute top-0 left-0 right-0 h-[3px] bg-brand"></div>
+<div class="flex items-center justify-between mb-2">
+<div class="icon-box w-7 h-7 rounded-md border border-borderline bg-surface-dim text-charcoal flex items-center justify-center">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<div class="selected-badge opacity-0 scale-90 transition-all duration-200 text-brand-dark">
+<svg class="w-4 h-4" fill="currentColor" viewbox="0 0 20 20">
+<path clip-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" fill-rule="evenodd"></path>
+</svg>
+</div>
+</div>
+<div class="font-semibold text-xs text-charcoal">自然风景</div>
+<div class="text-[10px] text-muted mt-0.5">园林 · 近郊山水</div>
+</div>
+<!-- 兴趣 5: 市集杂货 -->
+<div class="info-card interactive-hover relative bg-surface-card rounded-lg border border-borderline p-4 shadow-clean overflow-hidden cursor-pointer select-none text-left" onclick="toggleInterest(this)">
+<div class="indicator-line absolute top-0 left-0 right-0 h-[3px] bg-brand"></div>
+<div class="flex items-center justify-between mb-2">
+<div class="icon-box w-7 h-7 rounded-md border border-borderline bg-surface-dim text-charcoal flex items-center justify-center">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<div class="selected-badge opacity-0 scale-90 transition-all duration-200 text-brand-dark">
+<svg class="w-4 h-4" fill="currentColor" viewbox="0 0 20 20">
+<path clip-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" fill-rule="evenodd"></path>
+</svg>
+</div>
+</div>
+<div class="font-semibold text-xs text-charcoal">市集杂货</div>
+<div class="text-[10px] text-muted mt-0.5">独立文创 · 杂物店</div>
+</div>
+<!-- 兴趣 6: 必去地点 -->
+<div class="info-card interactive-hover relative bg-surface-card rounded-lg border border-borderline p-4 shadow-clean overflow-hidden cursor-pointer select-none text-left" onclick="toggleInterest(this)">
+<div class="indicator-line absolute top-0 left-0 right-0 h-[3px] bg-brand"></div>
+<div class="flex items-center justify-between mb-2">
+<div class="icon-box w-7 h-7 rounded-md border border-borderline bg-surface-dim text-charcoal flex items-center justify-center">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+<path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<div class="selected-badge opacity-0 scale-90 transition-all duration-200 text-brand-dark">
+<svg class="w-4 h-4" fill="currentColor" viewbox="0 0 20 20">
+<path clip-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" fill-rule="evenodd"></path>
+</svg>
+</div>
+</div>
+<div class="font-semibold text-xs text-charcoal">必去地标</div>
+<div class="text-[10px] text-muted mt-0.5">城市核心名片</div>
+</div>
+</div>
+</div>
+</section>
+<!-- 模块三：我的行程（图文行程卡片：上移 5px，图片缓慢放大 1.05x，文字与相邻卡片不变） -->
+<section class="mb-14">
+<div class="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 mb-6 pb-4 border-b border-borderline">
+<div>
+<div class="inline-block px-2.5 py-0.5 bg-surface-dim text-[11px] text-charcoal rounded-md mb-1 font-mono font-semibold">SCENARIO B / 我的行程 (TRAVELER FOLIO)</div>
+<h2 class="text-xl font-bold text-charcoal">图文行程卡片：鼠标悬停触发 1.05x 图片微缩放与 5px 上浮</h2>
+</div>
+<span class="text-xs text-muted">图片始终裁切于容器内，边框微显薄荷绿，相邻卡片绝对稳定</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- 行程卡片 1: 南法普罗旺斯 (实景图 IMAGE_5) -->
+<div class="trip-card interactive-hover bg-white rounded-xl border border-borderline overflow-hidden shadow-clean cursor-pointer group">
+<!-- 内部裁剪容器 -->
+<div class="relative h-48 overflow-hidden bg-surface-dim">
+<img alt="南法阳光街区与露天咖啡座" class="trip-img w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/AEtjO1W7Q9tqIDrGmK8P21-3tldwCXng22mcXLtCHutN1PGHQ4KoGM8JuqyOpz4u9cAmi-135fx52KTNvM3PoOWQfDDTywyQZfiexwfAEo9YDXN-UeMi0Fx67PuQRcWTj7maztSjDMCIqP_KkzBeNRK90VH0x2tZqWcHSaXfM92ipFCJoUb_VQWGr3QmMZ0liJ-HCQGF8lcEKb6aLmDczQAfLYGNXd_3Nfh0wYJ_06KVjb1y09NgFBAXNWp-TS4"/>
+<!-- 标签层 -->
+<div class="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent"></div>
+<div class="absolute top-3 left-3 bg-white/95 backdrop-blur-xs text-charcoal text-[11px] px-2.5 py-0.5 rounded-full font-semibold flex items-center gap-1.5 shadow-xs">
+<span class="w-1.5 h-1.5 rounded-full bg-brand"></span>
+<span>规划中 · 准备中</span>
+</div>
+<div class="absolute bottom-3 left-4 text-white">
+<div class="text-[11px] tracking-widest text-white/90 font-mono font-medium">PROVENCE · FRANCE</div>
+<h3 class="text-lg font-bold">南法小镇闲适漫步</h3>
+</div>
+</div>
+<!-- 文字内容区 -->
+<div class="p-5">
+<div class="flex items-center justify-between text-xs text-muted pb-3 border-b border-borderline">
+<span class="flex items-center gap-1.5">
+<svg class="w-3.5 h-3.5 text-brand-hover" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+              2025.05.12 - 05.18
+            </span>
+<span class="font-medium text-charcoal">7天6晚 · 2人同行</span>
+</div>
+<p class="text-xs text-muted mt-3 line-clamp-1">
+            尼斯老城 → 埃兹鹫巢村 → 勾禾德石头城 → 阿维尼翁断桥
+          </p>
+<div class="mt-4 pt-3 flex items-center justify-between">
+<span class="text-[11px] text-muted">2小时前修改</span>
+<span class="inline-flex items-center gap-1 text-xs font-semibold text-charcoal group-hover:text-brand-hover transition-colors">
+<span>查看行程</span>
+<svg class="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</span>
+</div>
+</div>
+</div>
+<!-- 行程卡片 2: 阿马尔菲晴朗海岸公路 (实景图 IMAGE_6) -->
+<div class="trip-card interactive-hover bg-white rounded-xl border border-borderline overflow-hidden shadow-clean cursor-pointer group">
+<!-- 内部裁剪容器 -->
+<div class="relative h-48 overflow-hidden bg-surface-dim">
+<img alt="晴朗海岸公路与碧蓝海景" class="trip-img w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/AEtjO1Vz39SO73tlo_sykZgKN_9afOxnJsTLq5YI8XntrQYLhKcjxHi3O-db0x71J48IHyXXWBNfEQ3aps-lfu-5csY_2WIarkmbiWDtfZaMcNvOG78ojQMu_6YE-8-k66ZeE-b2Jz7TUp9UPTnTB536R0ljBu_c-iv77YWMWFp_oCroGxe7YEMsbxOjOvZa1lXB4Ij779-PWnqTMcAQ9K8Cl0jW0iSrB_STfNoiFl6ZPYfrML4GeN5l5rvBbrQ"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent"></div>
+<div class="absolute top-3 left-3 bg-white/95 backdrop-blur-xs text-charcoal text-[11px] px-2.5 py-0.5 rounded-full font-semibold flex items-center gap-1.5 shadow-xs">
+<span class="w-1.5 h-1.5 rounded-full bg-brand"></span>
+<span>已归档 · 6天5晚</span>
+</div>
+<div class="absolute bottom-3 left-4 text-white">
+<div class="text-[11px] tracking-widest text-white/90 font-mono font-medium">AMALFI · ITALY</div>
+<h3 class="text-lg font-bold">阿马尔菲海岸阳光自驾</h3>
+</div>
+</div>
+<!-- 文字内容区 -->
+<div class="p-5">
+<div class="flex items-center justify-between text-xs text-muted pb-3 border-b border-borderline">
+<span class="flex items-center gap-1.5">
+<svg class="w-3.5 h-3.5 text-brand-hover" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+              2024.09.18 - 09.23
+            </span>
+<span class="font-medium text-charcoal">6天5晚 · 2人同行</span>
+</div>
+<p class="text-xs text-muted mt-3 line-clamp-1">
+            索伦托海湾 → 波西塔诺彩屋 → 拉维洛花园露台
+          </p>
+<div class="mt-4 pt-3 flex items-center justify-between">
+<span class="text-[11px] text-muted">2024.11.01 修改</span>
+<span class="inline-flex items-center gap-1 text-xs font-semibold text-charcoal group-hover:text-brand-hover transition-colors">
+<span>查看行程</span>
+<svg class="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</span>
+</div>
+</div>
+</div>
+<!-- 行程卡片 3: 厦门骑行与海风 -->
+<div class="trip-card interactive-hover bg-white rounded-xl border border-borderline overflow-hidden shadow-clean cursor-pointer group">
+<!-- 内部裁剪容器 -->
+<div class="relative h-48 overflow-hidden bg-surface-dim">
+<img alt="海边阳光建筑与棕榈" class="trip-img w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/AEtjO1Vz39SO73tlo_sykZgKN_9afOxnJsTLq5YI8XntrQYLhKcjxHi3O-db0x71J48IHyXXWBNfEQ3aps-lfu-5csY_2WIarkmbiWDtfZaMcNvOG78ojQMu_6YE-8-k66ZeE-b2Jz7TUp9UPTnTB536R0ljBu_c-iv77YWMWFp_oCroGxe7YEMsbxOjOvZa1lXB4Ij779-PWnqTMcAQ9K8Cl0jW0iSrB_STfNoiFl6ZPYfrML4GeN5l5rvBbrQ"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent"></div>
+<div class="absolute top-3 left-3 bg-white/95 backdrop-blur-xs text-charcoal text-[11px] px-2.5 py-0.5 rounded-full font-semibold flex items-center gap-1.5 shadow-xs">
+<span class="w-1.5 h-1.5 rounded-full bg-brand"></span>
+<span>已完结 · 3天2晚</span>
+</div>
+<div class="absolute bottom-3 left-4 text-white">
+<div class="text-[11px] tracking-widest text-white/90 font-mono font-medium">XIAMEN · FUJIAN</div>
+<h3 class="text-lg font-bold">厦门海风与骑行手册</h3>
+</div>
+</div>
+<!-- 文字内容区 -->
+<div class="p-5">
+<div class="flex items-center justify-between text-xs text-muted pb-3 border-b border-borderline">
+<span class="flex items-center gap-1.5">
+<svg class="w-3.5 h-3.5 text-brand-hover" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+              2024.05.01 - 05.03
+            </span>
+<span class="font-medium text-charcoal">3天2晚 · 1人独行</span>
+</div>
+<p class="text-xs text-muted mt-3 line-clamp-1">
+            高崎机场 → 沙坡尾艺术西区 → 环岛路骑行 → 鼓浪屿
+          </p>
+<div class="mt-4 pt-3 flex items-center justify-between">
+<span class="text-[11px] text-muted">2024.04.28 修改</span>
+<span class="inline-flex items-center gap-1 text-xs font-semibold text-charcoal group-hover:text-brand-hover transition-colors">
+<span>查看行程</span>
+<svg class="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- 模块四：参数规范参数表 (供设计与研发直接落地) -->
+<section class="bg-surface-dim border border-borderline rounded-xl p-6 shadow-clean">
+<h3 class="text-sm font-bold text-charcoal uppercase tracking-wider mb-4 flex items-center gap-2">
+<svg class="w-4 h-4 text-brand-hover" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span>交互参数对照速查表 (ENGINEERING TOKENS)</span>
+</h3>
+<div class="overflow-x-auto text-xs">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-borderline text-muted">
+<th class="py-2.5 px-3 font-semibold">卡片类型</th>
+<th class="py-2.5 px-3 font-semibold">悬停位移 (Y-Offset)</th>
+<th class="py-2.5 px-3 font-semibold">阴影与描边变化</th>
+<th class="py-2.5 px-3 font-semibold">专属子元素联动</th>
+<th class="py-2.5 px-3 font-semibold">持续时间 &amp; 曲线</th>
+<th class="py-2.5 px-3 font-semibold">移动端适配原则</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-borderline text-charcoal">
+<tr>
+<td class="py-3 px-3 font-semibold">信息卡片 (表单选项)</td>
+<td class="py-3 px-3 font-mono text-charcoal font-semibold">translateY(-8px)</td>
+<td class="py-3 px-3">浅阴影 → 0 12px 28px -6px rgba(23,61,53,0.12)</td>
+<td class="py-3 px-3">顶部色线 scaleX(1) + 图标背景变薄荷绿 #59CBB2</td>
+<td class="py-3 px-3 font-mono">300ms cubic-bezier(0.16, 1, 0.3, 1)</td>
+<td class="py-3 px-3 text-muted">取消 hover 浮动，点击即锁定选中态</td>
+</tr>
+<tr>
+<td class="py-3 px-3 font-semibold">图文卡片 (我的行程)</td>
+<td class="py-3 px-3 font-mono text-charcoal font-semibold">translateY(-5px)</td>
+<td class="py-3 px-3">0 10px 24px + 边框轻微显现薄荷绿 #59CBB2</td>
+<td class="py-3 px-3">图片缓慢放大至 scale(1.05)，外层溢出隐藏</td>
+<td class="py-3 px-3 font-mono">图片 450ms / 卡片 300ms</td>
+<td class="py-3 px-3 text-muted">点击产生轻微 active 缩放 (scale 0.98)</td>
+</tr>
+<tr>
+<td class="py-3 px-3 font-semibold">选中状态 (Selected)</td>
+<td class="py-3 px-3 font-mono text-charcoal font-semibold">translateY(0px)</td>
+<td class="py-3 px-3">2px 深绿描边 #173D35 + #E8F8F2 浅薄荷底</td>
+<td class="py-3 px-3">常驻色线 + 右上角勾选徽章</td>
+<td class="py-3 px-3 font-mono">200ms 快速确立</td>
+<td class="py-3 px-3 text-muted">桌面与移动端统一呈现</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- 底部页脚说明 -->
+<footer class="mt-12 pt-6 border-t border-borderline flex flex-col sm:flex-row items-center justify-between text-xs text-muted">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-xs bg-brand"></span>
+<span>旅行计划 · CARTOGRAPHIC ITINERARY ENGINE</span>
+</div>
+<div class="mt-2 sm:mt-0 font-mono">
+      INTERACTION SYSTEM REV-03 · MINT &amp; SUNSHINE
+    </div>
+</footer>
+<script>
+    // 单选节奏选择
+    function selectPace(el, paceName) {
+      const container = document.getElementById('pace-container');
+      const cards = container.querySelectorAll('.info-card');
+      cards.forEach(card => {
+        card.classList.remove('is-selected');
+      });
+      el.classList.add('is-selected');
+      document.getElementById('pace-result-text').textContent = paceName;
+    }
+
+    // 多选兴趣偏好
+    function toggleInterest(el) {
+      el.classList.toggle('is-selected');
+      let count = 0;
+      document.querySelectorAll('.lg\\:grid-cols-6 .info-card').forEach(card => {
+        if (card.classList.contains('is-selected')) count++;
+      });
+      document.getElementById('interests-count').textContent = count;
+    }
+
+    // 桌面/移动端模式切换展示
+    function setViewMode(mode) {
+      const desktopBtn = document.getElementById('view-mode-desktop');
+      const mobileBtn = document.getElementById('view-mode-mobile');
+      const allCards = document.querySelectorAll('.interactive-hover');
+
+      if (mode === 'desktop') {
+        desktopBtn.classList.add('bg-white', 'text-charcoal', 'shadow-sm');
+        desktopBtn.classList.remove('text-muted');
+        mobileBtn.classList.remove('bg-white', 'text-charcoal', 'shadow-sm');
+        mobileBtn.classList.add('text-muted');
+
+        // 启用悬停动效
+        allCards.forEach(c => {
+          c.classList.add('interactive-hover');
+        });
+      } else {
+        mobileBtn.classList.add('bg-white', 'text-charcoal', 'shadow-sm');
+        mobileBtn.classList.remove('text-muted');
+        desktopBtn.classList.remove('bg-white', 'text-charcoal', 'shadow-sm');
+        desktopBtn.classList.add('text-muted');
+
+        // 移动端模式：取消鼠标悬浮浮动，强化点击与选中反馈
+        allCards.forEach(c => {
+          c.classList.remove('interactive-hover');
+        });
+      }
+    }
+  </script>
+</body></html>
