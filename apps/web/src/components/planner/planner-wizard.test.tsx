@@ -11,6 +11,7 @@ import {
   type PlannerPreviewRecord,
 } from "@/lib/planner-preview-store";
 import { readTrips } from "@/lib/travel-store";
+import type { TripDraft } from "@/lib/types";
 import { PlannerWizard } from "./planner-wizard";
 
 afterEach(() => { window.history.replaceState(null, "", "/"); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
@@ -41,15 +42,65 @@ function oldPreview(): PlannerPreviewRecord {
   return { version: 1, draft: savedDraft.draft, ...createLocalItinerary(savedDraft.draft) };
 }
 
-async function generatePreview() {
+test("首次创建行程不预填示例内容", () => {
+  render(<PlannerWizard />);
+
+  expect(screen.getByRole("textbox", { name: "出发城市" })).toHaveValue("");
+  expect(screen.getByRole("textbox", { name: "目的城市" })).toHaveValue("");
+  expect(screen.getByRole("spinbutton", { name: "旅行天数" })).toHaveValue(null);
+  expect(screen.getByRole("spinbutton", { name: "同行人数" })).toHaveValue(null);
+  expect(screen.queryByRole("textbox", { name: "出发日期" })).not.toBeInTheDocument();
+});
+
+test("确认步骤可以使用 AI 生成完整行程预览", async () => {
+  const generateAiPlan = vi.fn(async (draft: TripDraft) => ({
+    ...createLocalItinerary(draft),
+    notices: ["AI 已结合真实地点生成行程。"],
+  }));
+  render(<PlannerWizard generateAiPlan={generateAiPlan} />);
+
+  await userEvent.type(screen.getByRole("textbox", { name: "出发城市" }), "南京");
+  await userEvent.type(screen.getByRole("textbox", { name: "目的城市" }), "苏州");
+  await userEvent.type(screen.getByRole("spinbutton", { name: "旅行天数" }), "2");
+  await userEvent.type(screen.getByRole("spinbutton", { name: "同行人数" }), "2");
   await userEvent.click(screen.getByRole("button", { name: "直接确认" }));
-  await userEvent.click(screen.getByRole("button", { name: "生成行程预览" }));
+
+  expect(screen.getByRole("button", { name: /AI 生成行程/ })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /普通生成/ })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: /AI 生成行程/ }));
+
+  expect(await screen.findByRole("region", { name: "行程预览" })).toBeInTheDocument();
+  expect(generateAiPlan).toHaveBeenCalledWith(expect.objectContaining({
+    origin: "南京",
+    destinations: ["苏州"],
+    days: 2,
+    travelers: 2,
+  }));
+  expect(screen.getByRole("status")).toHaveTextContent("AI 已结合真实地点生成行程");
+});
+
+async function generatePreview() {
+  await fillRequiredBasics();
+  await userEvent.click(screen.getByRole("button", { name: "直接确认" }));
+  await userEvent.click(screen.getByRole("button", { name: "普通生成" }));
   return screen.findByRole("region", { name: "行程预览" });
+}
+
+async function fillRequiredBasics() {
+  const origin = screen.getByRole("textbox", { name: "出发城市" });
+  const destination = screen.getByRole("textbox", { name: "目的城市" });
+  const days = screen.getByRole("spinbutton", { name: "旅行天数" });
+  const travelers = screen.getByRole("spinbutton", { name: "同行人数" });
+  if (!(origin as HTMLInputElement).value) await userEvent.type(origin, "南京");
+  if (!(destination as HTMLInputElement).value) await userEvent.type(destination, "苏州、杭州");
+  if (!(days as HTMLInputElement).value) await userEvent.type(days, "4");
+  if (!(travelers as HTMLInputElement).value) await userEvent.type(travelers, "2");
 }
 
 test("创建页可以跳过可选偏好直接确认", async () => {
   render(<PlannerWizard />);
   expect(screen.getByRole("textbox", { name: "目的城市" })).toBeInTheDocument();
+  await fillRequiredBasics();
   await userEvent.click(screen.getByRole("button", { name: "直接确认" }));
   expect(screen.getByRole("heading", { name: "确认后生成预览" })).toBeInTheDocument();
 });
@@ -59,6 +110,7 @@ test("空目的地和越界天数不能进入下一步", async () => {
   await userEvent.clear(screen.getByRole("textbox", { name: "目的城市" }));
   await userEvent.click(screen.getByRole("button", { name: "下一步" }));
   expect(screen.getByRole("alert")).toHaveTextContent("目的城市");
+  await userEvent.type(screen.getByRole("textbox", { name: "出发城市" }), "南京");
   await userEvent.type(screen.getByRole("textbox", { name: "目的城市" }), "苏州");
   await userEvent.clear(screen.getByRole("spinbutton", { name: "旅行天数" }));
   await userEvent.type(screen.getByRole("spinbutton", { name: "旅行天数" }), "31");
@@ -82,6 +134,7 @@ test("离开后恢复未完成草稿，首页的新参数优先", async () => {
 
 test("无效偏好预算不会阻止返回偏好页修正，恢复草稿也可修正", async () => {
   const first = render(<PlannerWizard />);
+  await fillRequiredBasics();
   await userEvent.click(screen.getByRole("button", { name: "下一步" }));
   await userEvent.clear(screen.getByRole("spinbutton", { name: /^每人预算/ }));
   fireEvent.change(screen.getByRole("spinbutton", { name: /^每人预算/ }), { target: { value: "-1" } });
@@ -102,15 +155,17 @@ test("首页填写的目的地和天数带入基础信息并保留节奏", async
   expect(await screen.findByRole("heading", { name: "从哪里出发？" })).toBeInTheDocument();
   expect(screen.getByRole("textbox", { name: "目的城市" })).toHaveValue("杭州、苏州");
   expect(screen.getByRole("spinbutton", { name: "旅行天数" })).toHaveValue(6);
+  await userEvent.type(screen.getByRole("textbox", { name: "出发城市" }), "南京");
+  await userEvent.type(screen.getByRole("spinbutton", { name: "同行人数" }), "2");
   await userEvent.click(screen.getByRole("button", { name: "下一步" }));
   expect(screen.getByRole("button", { name: "轻松" })).toHaveAttribute("aria-pressed", "true");
 });
 
-test("无效快速规划参数不覆盖默认值", async () => {
+test("无效快速规划参数不覆盖空白初始值", async () => {
   window.history.replaceState(null, "", "/plan/new?destination=%20%20&days=-5&pace=wrong");
   render(<PlannerWizard />);
-  expect(screen.getByRole("textbox", { name: "目的城市" })).toHaveValue("苏州、杭州");
-  expect(screen.getByRole("spinbutton", { name: "旅行天数" })).toHaveValue(4);
+  expect(screen.getByRole("textbox", { name: "目的城市" })).toHaveValue("");
+  expect(screen.getByRole("spinbutton", { name: "旅行天数" })).toHaveValue(null);
 });
 
 
@@ -119,12 +174,13 @@ test("创建页直接进入基础信息，避免重复选择入口", async () =>
 
 
   expect(screen.getByRole("heading", { name: "从哪里出发？" })).toBeInTheDocument();
-  expect(screen.getByLabelText("出发城市")).toHaveValue("南京");
+  expect(screen.getByLabelText("出发城市")).toHaveValue("");
 });
 
 
 test("用户可以在向导中进入旅行偏好步骤", async () => {
   render(<PlannerWizard />);
+  await fillRequiredBasics();
   await userEvent.click(screen.getByRole("button", { name: "下一步" }));
 
   expect(screen.getByRole("heading", { name: "这趟旅行想怎么玩？" })).toBeInTheDocument();
@@ -167,6 +223,7 @@ test("保存失败保留预览并允许重试", async () => {
 
 test("恢复草稿时回到原步骤，确认页可返回直接修改", async () => {
   const first = render(<PlannerWizard />);
+  await fillRequiredBasics();
   await userEvent.click(screen.getByRole("button", { name: "直接确认" }));
   first.unmount();
   render(<PlannerWizard />);
@@ -177,6 +234,7 @@ test("恢复草稿时回到原步骤，确认页可返回直接修改", async ()
 
 test("清空草稿需要确认，确认后清空地点并返回第一步", async () => {
   render(<PlannerWizard />);
+  await fillRequiredBasics();
   await userEvent.click(screen.getByRole("button", { name: "直接确认" }));
   await userEvent.click(screen.getByRole("button", { name: "清空重填" }));
   await userEvent.click(screen.getByRole("button", { name: "确认清空草稿" }));
@@ -224,7 +282,7 @@ test("目的地输入去空去重后再生成", async () => {
   await generatePreview();
 
   const preview = screen.getByRole("region", { name: "行程预览" });
-  expect(within(preview).getByText("南京 → 苏州 → 杭州 → 南京")).toBeInTheDocument();
+  expect(within(preview).getByText("南京 → 苏州 → 杭州")).toBeInTheDocument();
 });
 
 test("预览缓存写入失败时仍保留本次内存预览", async () => {
@@ -237,5 +295,5 @@ test("预览缓存写入失败时仍保留本次内存预览", async () => {
 
   await generatePreview();
   expect(screen.getByRole("region", { name: "行程预览" })).toBeInTheDocument();
-  expect(screen.getByRole("status")).toHaveTextContent("刷新后可能无法恢复");
+  expect(screen.getByText(/刷新后可能无法恢复/)).toBeInTheDocument();
 });

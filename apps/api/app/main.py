@@ -7,6 +7,7 @@ from .planner import build_itinerary
 from .schemas import Itinerary, TripRequest
 from .maps import router as maps_router
 from .recommendations import router as recommendations_router
+from .trip_ai import router as trip_ai_router
 
 app = FastAPI(title="旅行规划 API")
 app.add_middleware(
@@ -18,6 +19,7 @@ app.add_middleware(
 )
 app.include_router(maps_router)
 app.include_router(recommendations_router)
+app.include_router(trip_ai_router)
 
 
 @app.get("/api/health")

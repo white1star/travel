@@ -31,6 +31,10 @@ class ItineraryItem(BaseModel):
     verified_hours: bool = True
     notice: str | None = None
     coordinate: tuple[float, float]
+    poi_id: str | None = None
+    address: str | None = None
+    citycode: str | None = None
+    location_source: Literal["amap"] | None = None
 
 
 class ItineraryDay(BaseModel):
@@ -51,6 +55,8 @@ class BudgetSummary(BaseModel):
     tickets: int
     local_transport: int
     food: int
+    other: int = 0
+    allocations: dict[Literal["transport", "lodging", "food", "tickets", "local_transport", "other"], int]
 
 
 class Itinerary(BaseModel):

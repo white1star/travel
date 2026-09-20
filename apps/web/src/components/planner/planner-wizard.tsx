@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, CalendarDays, MapPinned, Sparkles } from "lucide-react";
 
-import { createLocalItinerary } from "@/lib/local-planner";
+import { requestAiItinerary } from "@/lib/ai-planner";
+import { createLocalItinerary, type LocalPlanResult } from "@/lib/local-planner";
 import {
   clearPlannerDraft,
   clearPlannerPreview,
@@ -26,17 +27,17 @@ const paceOptions: Array<{ value: Pace; label: string; detail: string }> = [
 
 const initialDraft: TripDraft = {
   mode: "known",
-  origin: "南京",
-  destinations: ["苏州", "杭州"],
-  dateMode: "fixed",
-  startDate: "2026-10-02",
-  days: 4,
-  travelers: 2,
-  budgetPerPerson: 3000,
+  origin: "",
+  destinations: [],
+  dateMode: "flexible",
+  startDate: "",
+  days: 0,
+  travelers: 0,
+  budgetPerPerson: 0,
   pace: "balanced",
-  interests: ["园林古迹", "博物馆", "特色美食"],
-  requiredPlaces: ["拙政园"],
-  returnToOrigin: true,
+  interests: [],
+  requiredPlaces: [],
+  returnToOrigin: false,
 };
 
 function uniqueTextList(value: string) {
@@ -46,17 +47,20 @@ function uniqueTextList(value: string) {
 type PlannerWizardProps = {
   onSave?: (itinerary: Itinerary) => void;
   navigate?: (href: string) => void;
+  generateAiPlan?: (draft: TripDraft) => Promise<LocalPlanResult>;
 };
 
 export function PlannerWizard({
   onSave = saveTrip,
   navigate = href => window.location.assign(href),
+  generateAiPlan = requestAiItinerary,
 }: PlannerWizardProps = {}) {
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState(initialDraft);
-  const [destinationText, setDestinationText] = useState("苏州、杭州");
-  const [requiredText, setRequiredText] = useState("拙政园");
+  const [destinationText, setDestinationText] = useState("");
+  const [requiredText, setRequiredText] = useState("");
   const [loading, setLoading] = useState(false);
+  const [generationMode, setGenerationMode] = useState<"ai" | "local" | null>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   const [draftStatus, setDraftStatus] = useState("");
@@ -136,7 +140,7 @@ export function PlannerWizard({
   }, [ready, draft, destinationText, requiredText, step]);
 
   const reset = () => {
-    setDraft({ ...initialDraft, origin: "", destinations: [], startDate: "", dateMode: "flexible", days: 3, travelers: 1, budgetPerPerson: 0, interests: [], requiredPlaces: [] });
+    setDraft({ ...initialDraft, destinations: [], interests: [], requiredPlaces: [] });
     setDestinationText(""); setRequiredText(""); setStep(0); setError(""); setConfirmReset(false); setPreview(null); setDraftStatus("已清空，可以重新填写");
     try { clearPlannerDraft(); clearPlannerPreview(); }
     catch { setPersistenceWarning("浏览器未能清除旧草稿，当前页面已重置。"); }
@@ -170,18 +174,14 @@ export function PlannerWizard({
     }));
   };
 
-  const generate = () => {
-    const issue = validate();
-    if (issue) { setError(issue); return; }
-    setLoading(true);
-    const normalized: TripDraft = {
-      ...draft,
-      origin: draft.origin.trim(),
-      destinations: uniqueTextList(destinationText),
-      requiredPlaces: uniqueTextList(requiredText),
-    };
-    setError("");
-    const result = createLocalItinerary(normalized);
+  const normalizedDraft = (): TripDraft => ({
+    ...draft,
+    origin: draft.origin.trim(),
+    destinations: uniqueTextList(destinationText),
+    requiredPlaces: uniqueTextList(requiredText),
+  });
+
+  const showPreview = (normalized: TripDraft, result: LocalPlanResult) => {
     const record: PlannerPreviewRecord = { version: 1, draft: normalized, ...result };
     setDraft(normalized);
     setDestinationText(normalized.destinations.join("、"));
@@ -193,7 +193,36 @@ export function PlannerWizard({
     } catch {
       setPersistenceWarning("预览已生成，但浏览器无法保存；刷新后可能无法恢复。请确认后尽快保存行程。");
     }
+  };
+
+  const generateLocal = () => {
+    const issue = validate();
+    if (issue) { setError(issue); return; }
+    setLoading(true);
+    setGenerationMode("local");
+    const normalized = normalizedDraft();
+    setError("");
+    const result = createLocalItinerary(normalized);
+    showPreview(normalized, result);
     setLoading(false);
+    setGenerationMode(null);
+  };
+
+  const generateAi = async () => {
+    const issue = validate();
+    if (issue) { setError(issue); return; }
+    setLoading(true);
+    setGenerationMode("ai");
+    setError("");
+    const normalized = normalizedDraft();
+    try {
+      showPreview(normalized, await generateAiPlan(normalized));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "AI 行程生成失败，请重试或使用普通生成。");
+    } finally {
+      setLoading(false);
+      setGenerationMode(null);
+    }
   };
 
   const backToEdit = () => {
@@ -259,8 +288,8 @@ export function PlannerWizard({
             <label className="field field--wide"><span>{draft.mode === "recommend" ? "推荐目的地" : "目的城市"}</span><input aria-label="目的城市" value={destinationText} onChange={(event) => setDestinationText(event.target.value)} /><small>多个城市用顿号分隔；苏州和杭州有本地点位，其他城市会保留为待完善行程。</small></label>
             <div className="field field--wide"><span>出发日期</span><div className="segmented"><button aria-pressed={draft.dateMode === "fixed"} onClick={() => setDraft({ ...draft, dateMode: "fixed" })}>日期已定</button><button aria-pressed={draft.dateMode === "flexible"} onClick={() => setDraft({ ...draft, dateMode: "flexible" })}>日期未定</button></div></div>
             {draft.dateMode === "fixed" && <label className="field"><span>出发日期</span><input type="date" value={draft.startDate} onChange={(event) => setDraft({ ...draft, startDate: event.target.value })} /></label>}
-            <label className="field"><span>旅行天数</span><input type="number" min={1} max={30} value={draft.days} onChange={(event) => setDraft({ ...draft, days: Number(event.target.value) })} /></label>
-            <label className="field"><span>同行人数</span><input type="number" min={1} max={20} value={draft.travelers} onChange={(event) => setDraft({ ...draft, travelers: Number(event.target.value) })} /></label>
+            <label className="field"><span>旅行天数</span><input type="number" min={1} max={30} value={draft.days || ""} onChange={(event) => setDraft({ ...draft, days: Number(event.target.value) })} /></label>
+            <label className="field"><span>同行人数</span><input type="number" min={1} max={20} value={draft.travelers || ""} onChange={(event) => setDraft({ ...draft, travelers: Number(event.target.value) })} /></label>
             <label className="check-row field--wide"><input type="checkbox" checked={draft.returnToOrigin} onChange={(event) => setDraft({ ...draft, returnToOrigin: event.target.checked })} /><span>旅行结束后返回出发城市</span></label>
           </div>
         </div>
@@ -272,7 +301,7 @@ export function PlannerWizard({
           <div className="field field--wide"><span>旅行节奏</span><div className="pace-options">{paceOptions.map((option) => <button key={option.value} aria-label={option.label} aria-pressed={draft.pace === option.value} onClick={() => setDraft({ ...draft, pace: option.value })}><strong>{option.label}</strong><small>{option.detail}</small></button>)}</div></div>
           <div className="field field--wide"><span>感兴趣的体验</span><div className="interest-options">{interests.map((interest) => <button key={interest} aria-pressed={draft.interests.includes(interest)} onClick={() => toggleInterest(interest)}>{interest}</button>)}</div></div>
           <div className="form-grid form-grid--spaced">
-            <label className="field"><span>每人预算</span><div className="input-with-unit"><input type="number" min={0} value={draft.budgetPerPerson} onChange={(event) => setDraft({ ...draft, budgetPerPerson: Number(event.target.value) })} /><b>元</b></div></label>
+            <label className="field"><span>每人预算</span><div className="input-with-unit"><input type="number" min={0} value={draft.budgetPerPerson || ""} onChange={(event) => setDraft({ ...draft, budgetPerPerson: Number(event.target.value) })} /><b>元</b></div></label>
             <label className="field"><span>必须去的地点</span><input value={requiredText} onChange={(event) => setRequiredText(event.target.value)} /><small>地图服务接入前，未收录的地点不会自动定位，请在行程中手动补充。</small></label>
           </div>
         </div>
@@ -296,7 +325,7 @@ export function PlannerWizard({
       <div className="wizard-actions">
         <button className="button button--ghost" disabled={step === 0 || loading} onClick={() => { setStep(step - 1); setError(""); }}><ArrowLeft size={17} />上一步</button>
         {step === 0 && <button className="button button--ghost" onClick={() => advance(2)}>直接确认</button>}
-        {step < 2 ? <button className="button button--primary" onClick={() => advance(step + 1)}>下一步<ArrowRight size={17} /></button> : <button className="button button--primary" disabled={loading} onClick={generate}>{loading ? "正在生成…" : "生成行程预览"}<Sparkles size={17} /></button>}
+        {step < 2 ? <button className="button button--primary" onClick={() => advance(step + 1)}>下一步<ArrowRight size={17} /></button> : <><button className="button button--ghost" disabled={loading} onClick={generateLocal}>{loading && generationMode === "local" ? "生成中…" : "普通生成"}</button><button className="button button--primary" disabled={loading} onClick={() => { void generateAi(); }}>{loading && generationMode === "ai" ? "AI 规划中…" : "AI 生成行程"}<Sparkles size={17} /></button></>}
       </div>
       </fieldset>
     </section>

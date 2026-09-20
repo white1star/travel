@@ -19,6 +19,25 @@ export type PlannerPreviewRecord = {
   notices: string[];
 };
 
+const LEGACY_EXAMPLE_DRAFT: TripDraft = {
+  mode: "known",
+  origin: "南京",
+  destinations: ["苏州", "杭州"],
+  dateMode: "fixed",
+  startDate: "2026-10-02",
+  days: 4,
+  travelers: 2,
+  budgetPerPerson: 3000,
+  pace: "balanced",
+  interests: ["园林古迹", "博物馆", "特色美食"],
+  requiredPlaces: ["拙政园"],
+  returnToOrigin: true,
+};
+
+function isLegacyExampleDraft(value: TripDraft) {
+  return JSON.stringify(value) === JSON.stringify(LEGACY_EXAMPLE_DRAFT);
+}
+
 function stringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every(item => typeof item === "string");
 }
@@ -127,6 +146,10 @@ export function readPlannerDraft(storage: Storage = window.localStorage): Planne
     || (record.step !== 0 && record.step !== 1 && record.step !== 2)) {
     throw new Error("创建数据无法读取");
   }
+  if (isLegacyExampleDraft(record.draft)) {
+    storage.removeItem(PLANNER_DRAFT_KEY);
+    return null;
+  }
   return record as PlannerDraftRecord;
 }
 
@@ -146,6 +169,10 @@ export function readPlannerPreview(storage: Storage = window.localStorage): Plan
   if (record.version !== 1 || !isTripDraft(record.draft, true) || !isItinerary(record.itinerary)
     || !stringArray(record.notices)) {
     throw new Error("创建数据无法读取");
+  }
+  if (isLegacyExampleDraft(record.draft)) {
+    storage.removeItem(PLANNER_PREVIEW_KEY);
+    return null;
   }
   return record as PlannerPreviewRecord;
 }

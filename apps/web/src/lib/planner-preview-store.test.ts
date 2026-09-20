@@ -64,6 +64,32 @@ test("不存在的草稿和预览返回空值", () => {
   expect(readPlannerPreview()).toBeNull();
 });
 
+test("旧版本自动写入的示例草稿和预览会被清除", () => {
+  const legacyDraft: TripDraft = {
+    ...draft,
+    interests: ["园林古迹", "博物馆", "特色美食"],
+  };
+  const legacyRecord: PlannerDraftRecord = {
+    version: 1,
+    draft: legacyDraft,
+    destinationText: "苏州、杭州",
+    requiredText: "拙政园",
+    step: 0,
+  };
+  const legacyPreview: PlannerPreviewRecord = {
+    version: 1,
+    draft: legacyDraft,
+    ...createLocalItinerary(legacyDraft),
+  };
+  writePlannerDraft(legacyRecord);
+  writePlannerPreview(legacyPreview);
+
+  expect(readPlannerDraft()).toBeNull();
+  expect(readPlannerPreview()).toBeNull();
+  expect(localStorage.getItem(PLANNER_DRAFT_KEY)).toBeNull();
+  expect(localStorage.getItem(PLANNER_PREVIEW_KEY)).toBeNull();
+});
+
 test.each([
   { version: 2, draft, destinationText: "苏州", requiredText: "", step: 0 },
   { ...draftRecord, step: 3 },

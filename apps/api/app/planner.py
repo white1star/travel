@@ -67,6 +67,14 @@ def _build_budget(request: TripRequest, ticket_total: int) -> BudgetSummary:
     tickets = ticket_total * travelers
     estimated = transport + lodging + local_transport + food + tickets
     available = request.budget_per_person * travelers
+    allocations = {
+        "transport": round(available * 0.20),
+        "lodging": round(available * 0.30),
+        "food": round(available * 0.20),
+        "tickets": round(available * 0.15),
+        "local_transport": round(available * 0.05),
+    }
+    allocations["other"] = available - sum(allocations.values())
     return BudgetSummary(
         total_available=available,
         estimated_total=estimated,
@@ -76,6 +84,8 @@ def _build_budget(request: TripRequest, ticket_total: int) -> BudgetSummary:
         tickets=tickets,
         local_transport=local_transport,
         food=food,
+        other=0,
+        allocations=allocations,
     )
 
 
