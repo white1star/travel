@@ -2,7 +2,7 @@ node_modules/
 .next/
 coverage/
 .env
-.env.local
+.env*.local
 *.log
 __pycache__/
 .pytest_cache/
